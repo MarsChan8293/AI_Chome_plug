@@ -94,6 +94,22 @@ function sendMessage() {
 
 sendBtn.addEventListener('click', sendMessage);
 
+let syncTimeout;
+input.addEventListener('input', () => {
+    const text = input.value;
+    clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                    type: 'SYNC_AI_INPUT',
+                    text: text
+                });
+            }
+        });
+    }, 150);
+});
+
 input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();

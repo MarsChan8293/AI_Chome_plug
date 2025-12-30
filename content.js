@@ -14,39 +14,40 @@
         if (request.type === 'SEND_AI_MESSAGE') {
             console.log("[AI Aggregator] Received message to send:", request.text.substring(0, 20) + "...");
             handleSendMessage(request.text);
+        } else if (request.type === 'SYNC_AI_INPUT') {
+            handleSyncInput(request.text);
         }
     });
 
-    async function handleSendMessage(text) {
+    function simulateEnter(target) {
+        const eventInit = {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            shiftKey: false
+        };
+        target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+        target.dispatchEvent(new KeyboardEvent('keypress', eventInit));
+        target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+    }
+
+    function clickElement(el) {
+        try {
+            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, view: window }));
+            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, view: window }));
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }));
+        } catch (e) {
+            el.click();
+        }
+    }
+
+    async function fillInput(text, shouldFocus = false) {
         const host = window.location.host;
         let inputEl = null;
-        let sendBtn = null;
-
-        function simulateEnter(target) {
-            const eventInit = {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-                cancelable: true,
-                composed: true,
-                shiftKey: false
-            };
-            target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
-            target.dispatchEvent(new KeyboardEvent('keypress', eventInit));
-            target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
-        }
-
-        function clickElement(el) {
-            try {
-                el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, view: window }));
-                el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, view: window }));
-                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }));
-            } catch (e) {
-                el.click();
-            }
-        }
 
         // 1. 定位输入框
         const inputSelectors = [
@@ -69,13 +70,14 @@
         }
 
         if (!inputEl) {
-            console.error("[AI Aggregator] Could not find input element on", host);
-            return;
+            // console.error("[AI Aggregator] Could not find input element on", host);
+            return null;
         }
 
-        // 2. 填充内容
-        console.log("[AI Aggregator] Found input element, filling content...");
-        inputEl.focus();
+        // 2. 填充内容（同步时不 focus，避免抢夺焦点）
+        if (shouldFocus) {
+            inputEl.focus();
+        }
         
         if (inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT') {
             // React 16+ hack to trigger onChange
@@ -87,11 +89,27 @@
             }
         } else {
             // 针对 contenteditable 的特殊处理 (如 Kimi, 元宝)
-            inputEl.focus();
-            // 先清空内容，防止重复
-            inputEl.innerText = '';
-            // 直接设置 innerText，避免 execCommand 可能导致的重复
-            inputEl.innerText = text;
+            // 使用 textContent 替代 innerText，更可靠
+            inputEl.textContent = text;
+            
+            // 如果有子节点（如 <p> 标签），也设置其内容
+            const firstChild = inputEl.querySelector('p, span, div');
+            if (firstChild) {
+                firstChild.textContent = text;
+            }
+            
+            // 将光标移到末尾（如果需要 focus）
+            if (shouldFocus) {
+                inputEl.focus();
+                try {
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    range.selectNodeContents(inputEl);
+                    range.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                } catch (e) {}
+            }
         }
 
         // 3. 触发一系列事件以确保框架（React/Vue）感知到输入
@@ -105,9 +123,22 @@
         events.forEach(evtType => {
             inputEl.dispatchEvent(new Event(evtType, { bubbles: true, cancelable: true }));
         });
+        
+        return inputEl;
+    }
 
-        // 针对某些需要 keydown 的框架
-        // inputEl.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true })); // 移除无特定键值的 keydown
+    async function handleSyncInput(text) {
+        await fillInput(text, false);  // 同步时不抢焦点
+    }
+
+    async function handleSendMessage(text) {
+        const host = window.location.host;
+        const inputEl = await fillInput(text, true);  // 发送时需要 focus
+        
+        if (!inputEl) {
+            console.error("[AI Aggregator] Could not find input element on", host);
+            return;
+        }
 
         // DeepSeek 需要直接模拟 Enter 发送
         if (host.includes('deepseek.com')) {
