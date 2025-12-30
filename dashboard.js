@@ -89,6 +89,7 @@ function sendMessage() {
     });
 
     input.value = '';
+    input.focus();
 }
 
 sendBtn.addEventListener('click', sendMessage);

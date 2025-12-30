@@ -88,11 +88,10 @@
         } else {
             // 针对 contenteditable 的特殊处理 (如 Kimi, 元宝)
             inputEl.focus();
-            // 尝试使用 execCommand，这是最接近真实用户输入的方式
-            if (!document.execCommand('insertText', false, text)) {
-                // 如果 execCommand 失败，回退到 innerText
-                inputEl.innerText = text;
-            }
+            // 先清空内容，防止重复
+            inputEl.innerText = '';
+            // 直接设置 innerText，避免 execCommand 可能导致的重复
+            inputEl.innerText = text;
         }
 
         // 3. 触发一系列事件以确保框架（React/Vue）感知到输入
@@ -108,11 +107,14 @@
         });
 
         // 针对某些需要 keydown 的框架
-        inputEl.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+        // inputEl.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true })); // 移除无特定键值的 keydown
 
-        // 千问经常依赖 Enter 发送（有些 UI 不会响应单纯 click()）
-        if (host.includes('qianwen.com')) {
+        // DeepSeek 需要直接模拟 Enter 发送
+        if (host.includes('deepseek.com')) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            console.log("[AI Aggregator] DeepSeek detected, using Enter key to send...");
             simulateEnter(inputEl);
+            return;
         }
 
         // 4. 等待 UI 响应（如发送按钮变亮）
@@ -122,14 +124,24 @@
         const buttonSelectors = [
             '#send_btn', // Yuanbao specific
             'a#send_btn',
-            'button[data-testid*="send"]',
+            '.chat-input-send-button',
+            '[class*="chat-input-send-button"]',
+            '[class*="SendButton"]',
+            '[data-testid*="send"]',
             'button[aria-label*="发送"]',
             'button[aria-label*="Send"]',
+            'button[title*="发送"]',
+            'button[title*="Send"]',
+            '[role="button"][aria-label*="发送"]',
+            '[role="button"][title*="发送"]',
             '.send-button',
             'button.arco-btn-primary',
             'button.ant-btn-primary',
-            '[role="button"][aria-label*="发送"]',
-            'button'
+            '[class*="send"]',
+            '[id*="send"]',
+            'button',
+            '[role="button"]',
+            '[type="submit"]'
         ];
 
         const candidates = [];
@@ -141,7 +153,22 @@
                 seen.add(btn);
                 if (btn.offsetParent === null) continue;
                 if (btn.disabled) continue;
-                // Check for class-based disabled state (common in <a> tags or custom buttons)
+                
+                // 排除明显的非发送按钮
+                const cls = (btn.className || '').toString().toLowerCase();
+                const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+                const title = (btn.getAttribute('title') || '').toLowerCase();
+                const text = (btn.innerText || '').trim();
+
+                // 如果是元宝的“智能体/插件”按钮，直接跳过
+                if (host.includes('yuanbao.tencent.com')) {
+                    if (aria.includes('智能体') || title.includes('智能体') || text.includes('智能体') || 
+                        aria.includes('插件') || title.includes('插件') || text.includes('插件') ||
+                        cls.includes('agent') || cls.includes('plugin')) {
+                        continue;
+                    }
+                }
+
                 if (typeof btn.className === 'string' && btn.className.toLowerCase().includes('disabled')) continue;
                 if (btn.getAttribute('aria-disabled') === 'true') continue;
                 
@@ -152,37 +179,79 @@
         function scoreButton(btn) {
             const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
             const testid = (btn.getAttribute('data-testid') || '').toLowerCase();
+            const title = (btn.getAttribute('title') || '').toLowerCase();
             const cls = (btn.className || '').toString().toLowerCase();
             const text = (btn.innerText || '').trim();
             const id = (btn.id || '').toLowerCase();
 
             let score = 0;
 
-            if (id === 'send_btn') score += 20; // Yuanbao
-            if (testid.includes('send')) score += 10;
-            if (aria.includes('发送') || aria.includes('send')) score += 10;
-            if (cls.includes('send')) score += 4;
-            if (text === '发送' || text === 'Send') score += 12;
-            if (text.includes('发送') || text.toLowerCase().includes('send')) score += 6;
-            if (btn.querySelector('svg') || btn.querySelector('img[src*="send"], img[alt*="send"], img[alt*="发送"]')) score += 2;
+            // 极高分项：明确的发送标识
+            if (id === 'send_btn' || id === 'sendbutton') score += 50;
+            if (cls.includes('chat-input-send-button') || cls.includes('sendbutton')) score += 40;
+            if (testid.includes('send') && testid.includes('button')) score += 40;
+            else if (testid.includes('send')) score += 20;
             
-            if (text.includes('刷新')) score -= 8;
-            if (text.includes('技能')) score -= 10;
-            if (text.includes('深度思考')) score -= 10;
-            if (aria.includes('技能')) score -= 10;
+            // 高分项：包含发送字样
+            if (aria.includes('发送') || aria.includes('send')) score += 25;
+            if (title.includes('发送') || title.includes('send')) score += 25;
+            if (text === '发送' || text === 'Send') score += 25;
+            if (text.includes('发送') || text.toLowerCase().includes('send')) score += 10;
+            
+            // 中分项：类名包含发送
+            if (cls.includes('send-button')) score += 15;
+            if (cls.includes('send')) score += 5;
+            
+            // 图标检查
+            const hasSendIcon = btn.querySelector('img[src*="send"], img[alt*="send"], img[alt*="发送"]') || 
+                               (btn.querySelector('svg') && (aria.includes('send') || aria.includes('发送') || cls.includes('send') || id.includes('send') || testid.includes('send')));
+            if (hasSendIcon) score += 25;
+            else if (btn.querySelector('svg')) score += 5;
+            
+            // 负分项：排除功能性按钮
+            if (text.includes('刷新')) score -= 20;
+            if (text.includes('技能') || text.includes('智能体') || text.includes('插件')) score -= 30;
+            if (text.includes('深度思考')) score -= 20;
+            if (aria.includes('技能') || aria.includes('智能体') || aria.includes('agent') || aria.includes('plugin')) score -= 40;
+            if (title.includes('技能') || title.includes('智能体') || title.includes('agent') || title.includes('plugin')) score -= 40;
+            if (aria.includes('添加') || aria.includes('上传') || aria.includes('plus') || aria.includes('more') || aria.includes('更多')) score -= 30;
+            if (cls.includes('agent') || cls.includes('plugin') || cls.includes('plus') || cls.includes('more')) score -= 30;
+            if (id.includes('agent') || id.includes('plugin')) score -= 30;
+            
+            // 状态检查
+            if (btn.getAttribute('aria-haspopup') === 'true') score -= 40;
+            if (btn.getAttribute('aria-expanded') === 'true') score -= 40;
+
+            // 位置检查：发送按钮通常在右侧
+            try {
+                const rect = btn.getBoundingClientRect();
+                const iframeWidth = window.innerWidth;
+                if (rect.left > iframeWidth * 0.7) {
+                    score += 15;
+                } else if (rect.left < iframeWidth * 0.3) {
+                    score -= 20; // 偏左的按钮大概率是功能插件按钮
+                }
+            } catch (e) {}
 
             return score;
         }
 
-        sendBtn = candidates
+        const bestCandidate = candidates
             .map(btn => ({ btn, score: scoreButton(btn) }))
-            .sort((a, b) => b.score - a.score)[0]?.btn || null;
+            .sort((a, b) => b.score - a.score)[0];
 
-        if (sendBtn) {
-            console.log("[AI Aggregator] Found send button, clicking...");
+        sendBtn = bestCandidate?.btn || null;
+
+        if (sendBtn && bestCandidate.score > 0) {
+            console.log("[AI Aggregator] Found send button, clicking...", sendBtn, "Score:", bestCandidate.score);
+            // 再次确保输入框有焦点，防止某些框架在失去焦点时重置状态
+            inputEl.focus();
+            await new Promise(resolve => setTimeout(resolve, 100));
             clickElement(sendBtn);
         } else {
-            console.log("[AI Aggregator] Send button not found or disabled, trying Enter key...");
+            console.log("[AI Aggregator] Send button not found or low score, trying Enter key...");
+            inputEl.focus();
+            await new Promise(resolve => setTimeout(resolve, 100));
             simulateEnter(inputEl);
         }
     }
