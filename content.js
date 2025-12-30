@@ -22,6 +22,32 @@
         let inputEl = null;
         let sendBtn = null;
 
+        function simulateEnter(target) {
+            const eventInit = {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                shiftKey: false
+            };
+            target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+            target.dispatchEvent(new KeyboardEvent('keypress', eventInit));
+            target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+        }
+
+        function clickElement(el) {
+            try {
+                el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, view: window }));
+                el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, view: window }));
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }));
+            } catch (e) {
+                el.click();
+            }
+        }
+
         // 1. 定位输入框
         const inputSelectors = [
             'textarea#chat-input',
@@ -70,6 +96,12 @@
         }
 
         // 3. 触发一系列事件以确保框架（React/Vue）感知到输入
+        try {
+            inputEl.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, data: text, inputType: 'insertText' }));
+        } catch (e) {
+            // Some pages disallow/ignore InputEvent constructor; fallback below.
+        }
+
         const events = ['input', 'change', 'blur', 'compositionend'];
         events.forEach(evtType => {
             inputEl.dispatchEvent(new Event(evtType, { bubbles: true, cancelable: true }));
@@ -78,31 +110,19 @@
         // 针对某些需要 keydown 的框架
         inputEl.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
 
-        // 特殊处理 Minimax (minimaxi.com)
-        if (host.includes('minimaxi.com')) {
-            // Minimax 可能需要更强的 Enter 键模拟
-            const enterEvent = new KeyboardEvent('keydown', {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-                cancelable: true,
-                composed: true
-            });
-            inputEl.dispatchEvent(enterEvent);
+        // 千问经常依赖 Enter 发送（有些 UI 不会响应单纯 click()）
+        if (host.includes('qianwen.com')) {
+            simulateEnter(inputEl);
         }
 
         // 4. 等待 UI 响应（如发送按钮变亮）
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // 5. 定位发送按钮
+        // 5. 定位发送按钮（按特征打分，避免选中“刷新”等非发送按钮）
         const buttonSelectors = [
             'button[data-testid*="send"]',
             'button[aria-label*="发送"]',
             'button[aria-label*="Send"]',
-            'button:has(svg)',
-            'button:has(img[src*="send"])',
             '.send-button',
             'button.arco-btn-primary',
             'button.ant-btn-primary',
@@ -110,32 +130,47 @@
             'button'
         ];
 
+        const candidates = [];
+        const seen = new Set();
         for (const selector of buttonSelectors) {
             const btns = document.querySelectorAll(selector);
             for (const btn of btns) {
-                if (btn.offsetParent !== null && !btn.disabled) {
-                    sendBtn = btn;
-                    break;
-                }
+                if (!btn || seen.has(btn)) continue;
+                seen.add(btn);
+                if (btn.offsetParent === null) continue;
+                if (btn.disabled) continue;
+                candidates.push(btn);
             }
-            if (sendBtn) break;
         }
+
+        function scoreButton(btn) {
+            const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+            const testid = (btn.getAttribute('data-testid') || '').toLowerCase();
+            const cls = (btn.className || '').toString().toLowerCase();
+            const text = (btn.innerText || '').trim();
+            let score = 0;
+
+            if (testid.includes('send')) score += 10;
+            if (aria.includes('发送') || aria.includes('send')) score += 10;
+            if (cls.includes('send')) score += 4;
+            if (text === '发送' || text === 'Send') score += 12;
+            if (text.includes('发送') || text.toLowerCase().includes('send')) score += 6;
+            if (btn.querySelector('svg') || btn.querySelector('img[src*="send"], img[alt*="send"], img[alt*="发送"]')) score += 2;
+            if (text.includes('刷新')) score -= 8;
+
+            return score;
+        }
+
+        sendBtn = candidates
+            .map(btn => ({ btn, score: scoreButton(btn) }))
+            .sort((a, b) => b.score - a.score)[0]?.btn || null;
 
         if (sendBtn) {
             console.log("[AI Aggregator] Found send button, clicking...");
-            sendBtn.click();
+            clickElement(sendBtn);
         } else {
             console.log("[AI Aggregator] Send button not found or disabled, trying Enter key...");
-            const enterEvent = new KeyboardEvent('keydown', {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-                cancelable: true,
-                shiftKey: false
-            });
-            inputEl.dispatchEvent(enterEvent);
+            simulateEnter(inputEl);
         }
     }
 })();

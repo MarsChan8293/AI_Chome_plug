@@ -1,4 +1,4 @@
-# AI Multi-Chat Aggregator
+# AI聚合for超聚变
 
 这是一个 Chrome 插件，允许你在一个页面中同时使用多个 AI 聊天机器人。
 

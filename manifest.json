@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "AI Multi-Chat Aggregator",
+  "name": "AI聚合for超聚变",
   "version": "1.0",
   "description": "在一个页面中同时使用多个 AI 聊天机器人",
   "permissions": [
@@ -15,10 +15,10 @@
     "*://*.aliyun.com/*",
     "*://*.yuanbao.tencent.com/*",
     "*://*.tongyi.aliyun.com/*",
+    "*://*.qianwen.com/*",
     "*://*.chatglm.cn/*",
     "*://*.kimi.com/*",
-    "*://*.moonshot.cn/*",
-    "*://*.minimaxi.com/*"
+    "*://*.moonshot.cn/*"
   ],
   "declarative_net_request": {
     "rule_resources": [
@@ -40,10 +40,10 @@
         "*://*.deepseek.com/*",
         "*://*.tencent.com/*",
         "*://*.aliyun.com/*",
+        "*://*.qianwen.com/*",
         "*://*.chatglm.cn/*",
         "*://*.kimi.com/*",
-        "*://*.moonshot.cn/*",
-        "*://*.minimaxi.com/*"
+        "*://*.moonshot.cn/*"
       ],
       "js": ["content.js"],
       "all_frames": true
