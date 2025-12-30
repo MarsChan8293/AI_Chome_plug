@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "AI Multi-Chat Aggregator",
+  "version": "1.0",
+  "description": "在一个页面中同时使用多个 AI 聊天机器人",
+  "permissions": [
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.doubao.com/*",
+    "*://*.deepseek.com/*",
+    "*://*.tencent.com/*",
+    "*://*.aliyun.com/*",
+    "*://*.yuanbao.tencent.com/*",
+    "*://*.tongyi.aliyun.com/*",
+    "*://*.chatglm.cn/*",
+    "*://*.kimi.com/*",
+    "*://*.moonshot.cn/*",
+    "*://*.minimaxi.com/*"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "action": {
+    "default_title": "打开 AI 聚合面板",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.doubao.com/*",
+        "*://*.deepseek.com/*",
+        "*://*.tencent.com/*",
+        "*://*.aliyun.com/*",
+        "*://*.chatglm.cn/*",
+        "*://*.kimi.com/*",
+        "*://*.moonshot.cn/*",
+        "*://*.minimaxi.com/*"
+      ],
+      "js": ["content.js"],
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["dashboard.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
