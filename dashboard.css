@@ -68,8 +68,8 @@ body, html {
 }
 
 .ai-frame {
-    flex: 0 0 calc(100% / 2); /* 二分屏方案：每个 AI 占 1/2 宽度 */
-    min-width: 450px; /* 保证在窄屏下不会太挤，支持滚动 */
+    flex: 0 0 calc(100% / 3); /* 三分屏方案：每个 AI 占 1/3 宽度 */
+    min-width: 350px; /* 保证在窄屏下不会太挤，支持滚动 */
     display: flex;
     flex-direction: column;
     background: white;

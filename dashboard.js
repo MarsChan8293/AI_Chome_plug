@@ -5,7 +5,7 @@ const toggles = document.querySelectorAll('.ai-toggle');
 
 // Load saved preferences
 chrome.storage.local.get(['selectedAIs'], (result) => {
-    const selected = result.selectedAIs || ['doubao', 'deepseek']; // 默认开启两个，适配二分屏
+    const selected = result.selectedAIs || ['doubao', 'deepseek', 'kimi']; // 默认开启三个，适配三分屏
     toggles.forEach(toggle => {
         if (selected.includes(toggle.dataset.id)) {
             toggle.checked = true;
@@ -24,10 +24,17 @@ function addAIFrame(id, url, name) {
     container.innerHTML = `
         <div class="label">
             <span>${name}</span>
-            <button class="refresh-btn" style="font-size:10px; cursor:pointer;">刷新</button>
+            <div>
+                <button class="open-btn" style="font-size:10px; cursor:pointer;">新标签页打开</button>
+                <button class="refresh-btn" style="font-size:10px; cursor:pointer;">刷新</button>
+            </div>
         </div>
         <iframe src="${url}" id="frame-${id}"></iframe>
     `;
+
+    container.querySelector('.open-btn').onclick = () => {
+        chrome.tabs.create({ url });
+    };
 
     container.querySelector('.refresh-btn').onclick = () => {
         const iframe = container.querySelector('iframe');
@@ -49,6 +56,12 @@ toggles.forEach(toggle => {
         const name = toggle.parentElement.textContent.trim();
 
         if (toggle.checked) {
+            const checkedCount = Array.from(toggles).filter(t => t.checked).length;
+            if (checkedCount > 3) {
+                toggle.checked = false;
+                alert('最多只能选择 3 个 AI 模型');
+                return;
+            }
             addAIFrame(id, url, name);
         } else {
             removeAIFrame(id);

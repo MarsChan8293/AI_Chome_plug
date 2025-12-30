@@ -120,6 +120,8 @@
 
         // 5. 定位发送按钮（按特征打分，避免选中“刷新”等非发送按钮）
         const buttonSelectors = [
+            '#send_btn', // Yuanbao specific
+            'a#send_btn',
             'button[data-testid*="send"]',
             'button[aria-label*="发送"]',
             'button[aria-label*="Send"]',
@@ -139,6 +141,10 @@
                 seen.add(btn);
                 if (btn.offsetParent === null) continue;
                 if (btn.disabled) continue;
+                // Check for class-based disabled state (common in <a> tags or custom buttons)
+                if (typeof btn.className === 'string' && btn.className.toLowerCase().includes('disabled')) continue;
+                if (btn.getAttribute('aria-disabled') === 'true') continue;
+                
                 candidates.push(btn);
             }
         }
@@ -148,15 +154,22 @@
             const testid = (btn.getAttribute('data-testid') || '').toLowerCase();
             const cls = (btn.className || '').toString().toLowerCase();
             const text = (btn.innerText || '').trim();
+            const id = (btn.id || '').toLowerCase();
+
             let score = 0;
 
+            if (id === 'send_btn') score += 20; // Yuanbao
             if (testid.includes('send')) score += 10;
             if (aria.includes('发送') || aria.includes('send')) score += 10;
             if (cls.includes('send')) score += 4;
             if (text === '发送' || text === 'Send') score += 12;
             if (text.includes('发送') || text.toLowerCase().includes('send')) score += 6;
             if (btn.querySelector('svg') || btn.querySelector('img[src*="send"], img[alt*="send"], img[alt*="发送"]')) score += 2;
+            
             if (text.includes('刷新')) score -= 8;
+            if (text.includes('技能')) score -= 10;
+            if (text.includes('深度思考')) score -= 10;
+            if (aria.includes('技能')) score -= 10;
 
             return score;
         }

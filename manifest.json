@@ -17,6 +17,7 @@
     "*://*.tongyi.aliyun.com/*",
     "*://*.qianwen.com/*",
     "*://*.chatglm.cn/*",
+    "*://chatglm.cn/*",
     "*://*.kimi.com/*",
     "*://*.moonshot.cn/*"
   ],
@@ -42,6 +43,7 @@
         "*://*.aliyun.com/*",
         "*://*.qianwen.com/*",
         "*://*.chatglm.cn/*",
+        "*://chatglm.cn/*",
         "*://*.kimi.com/*",
         "*://*.moonshot.cn/*"
       ],
