@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>AI聚合for超聚变</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="settings">
+                <label><input type="checkbox" class="ai-toggle" data-id="doubao" data-url="https://www.doubao.com/chat/"> 豆包</label>
+                <label><input type="checkbox" class="ai-toggle" data-id="deepseek" data-url="https://chat.deepseek.com/"> DeepSeek</label>
+                <label><input type="checkbox" class="ai-toggle" data-id="yuanbao" data-url="https://yuanbao.tencent.com/"> 元宝</label>
+                <label><input type="checkbox" class="ai-toggle" data-id="qianwen" data-url="https://www.qianwen.com/?ch=webtongyi"> 千问</label>
+                <label><input type="checkbox" class="ai-toggle" data-id="glm" data-url="https://chatglm.cn/"> 智谱清言</label>
+                <label><input type="checkbox" class="ai-toggle" data-id="kimi" data-url="https://www.kimi.com/"> Kimi</label>
+                <label><input type="checkbox" class="ai-toggle" data-id="m365" data-url="https://m365.cloud.microsoft/chat"> M365</label>
+            </div>
+        </div>
+        <div class="grid-container">
+            <div id="ai-grid" class="flex-grid">
+                <!-- Iframe will be injected here -->
+            </div>
+        </div>
+        <div class="input-area">
+            <textarea id="unified-input" placeholder="输入消息，按 Enter 发送给所有已选 AI..."></textarea>
+            <div class="button-group">
+                <button id="new-chat-btn" title="开始新对话">新对话</button>
+                <button id="send-btn">发送</button>
+            </div>
+        </div>
+    </div>
+    <script src="dashboard.js"></script>
+</body>
+</html>
