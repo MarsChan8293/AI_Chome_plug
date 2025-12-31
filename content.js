@@ -17,9 +17,9 @@
         } else if (request.type === 'SYNC_INPUT') {
             // 实时同步输入：只填充文字，不触发发送
             console.log("[AI Aggregator] Syncing input:", request.text.substring(0, 20) + "...");
-            // M365：避免实时同步导致重复写入/干扰编辑器状态。
+            // M365/GitHub Copilot：避免实时同步导致重复写入/干扰编辑器状态。
             // 需求：只在发送时写入（SEND_AI_MESSAGE），不做实时同步。
-            if (window.location.host.includes('m365.cloud.microsoft')) {
+            if (window.location.host.includes('m365.cloud.microsoft') || window.location.host.includes('github.com')) {
                 return;
             }
 
@@ -66,6 +66,14 @@
         'div[contenteditable="true"][data-placeholder*="Copilot"]',
         'div[contenteditable="true"][data-placeholder*="发送"]',
 
+        // GitHub Copilot
+        'textarea[placeholder*="Ask Copilot"]',
+        'textarea[aria-label*="Ask Copilot"]',
+        'textarea[placeholder*="Ask me"]',
+        '[role="textbox"][aria-label*="Ask Copilot"]',
+        'div[contenteditable="true"][aria-label*="Ask Copilot"]',
+        'div[contenteditable="true"][data-placeholder*="Ask Copilot"]',
+
         'textarea[placeholder*="问"]',
         'textarea[placeholder*="Ask"]',
         'textarea[placeholder*="输入"]',
@@ -89,6 +97,76 @@
     // 查找可见的输入框
     function findInputElement() {
         const host = window.location.host;
+
+        // GitHub Copilot：优先选择明确的对话输入框
+        if (host.includes('github.com')) {
+            const copilotSelectors = [
+                'textarea[placeholder*="Ask Copilot"]',
+                'textarea[aria-label*="Ask Copilot"]',
+                'textarea[placeholder*="Ask me"]',
+                '[role="textbox"][aria-label*="Ask Copilot"]',
+                'div[contenteditable="true"][aria-label*="Ask Copilot"]',
+                'div[contenteditable="true"][data-placeholder*="Ask Copilot"]'
+            ];
+            for (const selector of copilotSelectors) {
+                const candidates = querySelectorAllDeep(selector);
+                for (const el of candidates) {
+                    if (isVisible(el)) return el;
+                }
+            }
+
+            // GitHub 可能存在多个输入框：弱匹配后打分选"最像聊天输入框"的
+            const candidates = querySelectorAllDeep('textarea, input[type="text"], [role="textbox"], div[contenteditable="true"], [contenteditable="true"]');
+
+            function scoreCandidate(el) {
+                if (!isVisible(el)) return -9999;
+                if (el.disabled) return -9999;
+                if (el.getAttribute('aria-disabled') === 'true') return -9999;
+                if (el.getAttribute('contenteditable') === 'false') return -9999;
+                if (el.readOnly) return -9999;
+
+                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                const placeholder = (el.getAttribute('placeholder') || '').toLowerCase();
+                const role = (el.getAttribute('role') || '').toLowerCase();
+                const id = (el.id || '').toLowerCase();
+                const cls = (el.className || '').toString().toLowerCase();
+
+                let score = 0;
+
+                // 语义/文案
+                if (aria.includes('copilot') || placeholder.includes('copilot')) score += 60;
+                if (aria.includes('ask') || placeholder.includes('ask')) score += 40;
+                if (aria.includes('message') || placeholder.includes('message')) score += 25;
+                if (role === 'textbox') score += 10;
+
+                // 排除搜索/过滤
+                if (aria.includes('search') || placeholder.includes('search') || id.includes('search') || cls.includes('search')) score -= 80;
+                if (aria.includes('filter') || placeholder.includes('filter')) score -= 60;
+
+                // 位置：聊天输入一般靠近底部
+                try {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.top > window.innerHeight * 0.45) score += 20;
+                    if (rect.top > window.innerHeight * 0.70) score += 15;
+                    if (rect.top < window.innerHeight * 0.20) score -= 25;
+                } catch (e) {}
+
+                // 形态
+                const tag = (el.tagName || '').toUpperCase();
+                if (tag === 'TEXTAREA') score += 25;
+                if (el.isContentEditable || el.getAttribute('contenteditable') === 'true') score += 15;
+
+                return score;
+            }
+
+            const best = candidates
+                .map(el => ({ el, score: scoreCandidate(el) }))
+                .sort((a, b) => b.score - a.score)[0];
+
+            if (best && best.score > 0) {
+                return best.el;
+            }
+        }
 
         // M365 Copilot：优先选择明确的对话输入框
         if (host.includes('m365.cloud.microsoft')) {
@@ -256,8 +334,8 @@
                     // 同步场景：不聚焦、不动选区，仅更新内容
                     inputEl.innerText = text;
                 }
-            } else if (host.includes('m365.cloud.microsoft')) {
-                // M365 Copilot：发送按钮通常在“真实输入事件”后才会出现
+            } else if (host.includes('m365.cloud.microsoft') || host.includes('github.com')) {
+                // M365 Copilot / GitHub Copilot：发送按钮通常在“真实输入事件”后才会出现
                 // shouldFocus=false 时不抢焦点，仅更新可见内容；shouldFocus=true 时用 execCommand 触发站点编辑器状态更新
                 if (shouldFocus) {
                     try {
@@ -282,7 +360,7 @@
         // 注意：Kimi 的编辑器对 beforeinput/InputEvent(data=...) 很敏感，容易造成“写入后又插入一遍”
         // 同时不要在同步阶段派发 blur/或改 Selection，否则容易抢焦点
         const isKimi = host.includes('kimi');
-        const isM365 = host.includes('m365.cloud.microsoft');
+        const isM365 = host.includes('m365.cloud.microsoft') || host.includes('github.com');
         const isContentEditable = !(inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'INPUT');
 
         // Kimi/M365 的编辑器对 InputEvent(data=...) 较敏感，可能导致“写入后又插入一遍”
@@ -395,7 +473,7 @@
         }
 
         // 4. 等待 UI 响应（如发送按钮变亮）
-        await new Promise(resolve => setTimeout(resolve, host.includes('m365.cloud.microsoft') ? 800 : 500));
+        await new Promise(resolve => setTimeout(resolve, host.includes('m365.cloud.microsoft') || host.includes('github.com') ? 800 : 500));
 
         // 5. 定位发送按钮（按特征打分，避免选中“刷新”等非发送按钮）
         const buttonSelectors = [
@@ -652,6 +730,8 @@
                 window.location.href = 'https://kimi.moonshot.cn/';
             } else if (host.includes('m365.cloud.microsoft')) {
                 window.location.href = 'https://m365.cloud.microsoft/chat';
+            } else if (host.includes('github.com')) {
+                window.location.href = 'https://github.com/copilot';
             }
         }
     }

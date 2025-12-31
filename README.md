@@ -20,6 +20,7 @@
 - **智谱清言 (ChatGLM)**
 - **Kimi (Moonshot AI)**
 - **M365 (Microsoft 365 copilot)**
+- **GitHub Copilot**
 
 
 ## 安装步骤
