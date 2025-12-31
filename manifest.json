@@ -21,7 +21,9 @@
     "*://*.kimi.com/*",
     "*://*.moonshot.cn/*",
     "*://*.m365.cloud.microsoft/*",
-    "*://m365.cloud.microsoft/*"
+    "*://m365.cloud.microsoft/*",
+    "*://*.github.com/*",
+    "*://github.com/*"
   ],
   "declarative_net_request": {
     "rule_resources": [
@@ -49,7 +51,9 @@
         "*://*.kimi.com/*",
         "*://*.moonshot.cn/*",
         "*://*.m365.cloud.microsoft/*",
-        "*://m365.cloud.microsoft/*"
+        "*://m365.cloud.microsoft/*",
+        "*://*.github.com/*",
+        "*://github.com/*"
       ],
       "js": ["content.js"],
       "all_frames": true
